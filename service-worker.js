@@ -2,20 +2,45 @@ const CACHE_NAME = 'wisen-pwa-v1';
 const urlsToCache = [
   './',
   './index.html',
-  './index.tsx', // IMPORTANT: Add the main JS module
-  './manifest.json'
-  // You might want to add other critical static assets here (e.g., images, fonts)
-  // CDN assets are generally handled by the browser's HTTP cache, but can be explicitly cached if needed.
+  './index.tsx',
+  './manifest.json',
+  './metadata.json',
+  './App.tsx',
+  './types.ts',
+  './services/geminiService.ts',
+  './components/Navbar.tsx',
+  './context/ProjectContext.tsx',
+  './pages/Home.tsx',
+  './pages/Portfolio.tsx',
+  './pages/Admin.tsx',
+  './components/Footer.tsx',
+  './pages/ProjectDetail.tsx',
+  './context/ProfileContext.tsx',
+  './context/AuthContext.tsx',
+  './pages/Login.tsx',
+  './pages/Sales.tsx',
+  // CDN assets from index.html and importmap
+  'https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap',
+  'https://fonts.gstatic.com', // preconnect origin for fonts
+  'https://cdn.tailwindcss.com',
+  'https://aistudiocdn.com/react@^19.2.0/',
+  'https://aistudiocdn.com/react@^19.2.0',
+  'https://aistudiocdn.com/react-dom@^19.2.0/',
+  'https://aistudiocdn.com/lucide-react@^0.555.0',
+  'https://aistudiocdn.com/recharts@^3.5.1',
+  'https://aistudiocdn.com/react-router-dom@^7.9.6',
+  'https://aistudiocdn.com/@google/genai@^1.30.0',
+  // PWA icons - assuming they are in the root based on manifest.json
+  'https://cdn-icons-png.flaticon.com/512/10891/10891991.png'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        // Attempt to cache core assets.
-        // Catch errors to prevent installation from failing if a non-critical resource fails.
         return cache.addAll(urlsToCache).catch(err => {
-            console.error('Failed to cache all core URLs during install:', err);
+            console.error('Failed to cache some URLs during install:', err);
+            // Even if some fail, try to proceed. Log the error.
         });
       })
       .then(() => self.skipWaiting()) // Activate new service worker immediately
@@ -40,32 +65,24 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
   if (event.request.method !== 'GET') {
     return;
   }
 
-  // Strategy: Cache-first, then network, and update cache if new response is valid
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Cache hit - return response
         if (response) {
           return response;
         }
 
-        // Clone the request to fetch it twice (once for cache, once for browser)
         const fetchRequest = event.request.clone();
 
         return fetch(fetchRequest).then((networkResponse) => {
-          // Check if we received a valid response
           if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
             return networkResponse;
           }
 
-          // Important: Clone the response. A response is a stream and
-          // can only be consumed once. We are consuming it once to cache it
-          // and once to return it to the browser.
           const responseToCache = networkResponse.clone();
 
           caches.open(CACHE_NAME).then((cache) => {
@@ -74,10 +91,11 @@ self.addEventListener('fetch', (event) => {
 
           return networkResponse;
         }).catch((error) => {
-          console.error('Fetch failed:', event.request.url, error);
-          // You could return an offline page here if needed
-          // For now, let the browser handle network failure
+          console.error('Fetch failed for:', event.request.url, error);
+          // For now, let the browser handle network failure for dynamic content
+          // or return a generic offline page if a specific one is provided.
           // return caches.match('/offline.html');
+          throw error; // Propagate the error to show that the fetch failed
         });
       })
   );
